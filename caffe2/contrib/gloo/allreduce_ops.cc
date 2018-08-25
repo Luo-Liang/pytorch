@@ -82,6 +82,17 @@ void AllreduceOp<Context>::initializeHalvingDoubling() {
 }
 
 template <class Context>
+void AllReduceOp<Context>::initializePHub() {
+  if (init_.template IsType<float>()) {
+    algorithm_.reset(new ::gloo::AllReducePHub<float>(
+        init_.context, init_.template getOutputs<float>(), init_.size));
+    ));
+  } else {
+    CAFFE_ENFORCE(false, "Unhandled type: ", init_.meta.name());
+  }
+}
+
+template <class Context>
 void AllreduceOp<Context>::initializeRingFull() {
   if (init_.template IsType<float>()) {
     algorithm_.reset(new ::gloo::AllreduceRing<float>(

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <algorithm>
-
+#include <cstdlib> 
 #include "caffe2/contrib/gloo/common.h"
 #include "caffe2/core/operator.h"
 #include "caffe2/utils/math.h"
@@ -15,7 +15,7 @@ namespace gloo {
 
 template <class Context>
 class AllreduceOp final : public Operator<Context> {
-  enum Mode { RING_FULL, RING_CHUNKED, HALVING_DOUBLING, BCUBE };
+  enum Mode { RING_FULL, RING_CHUNKED, HALVING_DOUBLING, BCUBE, PHUB };
 
  public:
   USE_OPERATOR_CONTEXT_FUNCTIONS;
@@ -59,6 +59,19 @@ class AllreduceOp final : public Operator<Context> {
  protected:
   void initialize() {
     Mode mode = HALVING_DOUBLING;
+    auto modeCstr = std::getenv("CaffeAllReduce");
+    if(modeCstr != NULL)
+    {
+      std::string modeStr = std::string(modeCstr);
+      if(modeStr == "halving_doubling")
+      {
+        mode = HALVING_DOUBLING;
+      }
+      else if(modeStr == "phub")
+      {
+        mode = Mode::PHUB;
+      }
+    }
     auto bytes = Input(1).nbytes();
 
     // Store which inputs/outputs this instance initialized with
@@ -95,6 +108,9 @@ class AllreduceOp final : public Operator<Context> {
       case BCUBE:
         initializeBcube();
         return;
+      case PHUB:
+        initializePHub();
+        return;
     }
 
     CAFFE_ENFORCE(false, "Unreachable code");
@@ -104,6 +120,7 @@ class AllreduceOp final : public Operator<Context> {
   void initializeHalvingDoubling();
   void initializeRingFull();
   void initializeRingChunked();
+  void initializePHub();
 
   std::once_flag once_;
   std::unique_ptr<::gloo::Algorithm> algorithm_;
