@@ -6,6 +6,7 @@
 #include <gloo/allreduce_halving_doubling.h>
 #include <gloo/allreduce_ring.h>
 #include <gloo/allreduce_ring_chunked.h>
+#include <gloo/allreduce_phub.h>
 #include <gloo/types.h>
 
 namespace {
@@ -82,11 +83,10 @@ void AllreduceOp<Context>::initializeHalvingDoubling() {
 }
 
 template <class Context>
-void AllReduceOp<Context>::initializePHub() {
+void AllreduceOp<Context>::initializePHub() {
   if (init_.template IsType<float>()) {
     algorithm_.reset(new ::gloo::AllReducePHub<float>(
         init_.context, init_.template getOutputs<float>(), init_.size));
-    ));
   } else {
     CAFFE_ENFORCE(false, "Unhandled type: ", init_.meta.name());
   }
