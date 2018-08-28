@@ -3,8 +3,7 @@ import torch._C
 import contextlib
 import ctypes
 import sys
-import types
-import torch.jit
+
 
 # Query `hasattr` only once.
 _SET_GLOBAL_FLAGS = hasattr(sys, 'getdlopenflags') and hasattr(sys, 'setdlopenflags')
@@ -24,10 +23,7 @@ def dl_open_guard():
         sys.setdlopenflags(old_flags)
 
 
-# _OpNamespace is a subclass of ModuleType because the torch script
-# allows attribute lookups on modules only. Since we want torch.ops.foo.bar()
-# to work from script, we need to ensure ops and foo are modules
-class _OpNamespace(types.ModuleType):
+class _OpNamespace(object):
     """
     An op namespace to dynamically bind Operators into Python.
 
@@ -48,24 +44,18 @@ class _OpNamespace(types.ModuleType):
         operation will already exist).
     """
     def __init__(self, name):
-        super(_OpNamespace, self).__init__('torch.ops.' + name)
         self.name = name
 
     def __getattr__(self, op_name):
         # Get the op `my_namespace::my_op` if available. This will also check
         # for overloads and raise an exception if there are more than one.
-        qualified_op_name = '{}::{}'.format(self.name, op_name)
-        op = torch._C._jit_get_operation(qualified_op_name)
-        # let the script frontend know that op is identical to the builtin op
-        # with qualified_op_name
-        torch.jit._register_builtin(op, qualified_op_name)
+        op = torch._C._jit_get_operation('{}::{}'.format(self.name, op_name))
         setattr(self, op_name, op)
         return op
 
 
-class _Ops(types.ModuleType):
+class _Ops(object):
     def __init__(self):
-        super(_Ops, self).__init__('torch.ops')
         self.loaded_libraries = set()
 
     def __getattr__(self, name):

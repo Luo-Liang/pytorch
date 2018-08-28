@@ -2,13 +2,11 @@
 
 #include <atomic>
 
-#include "ATen/core/ATenGeneral.h"
-
 namespace at {
 
 // base class for refcounted things, allows for collects of generic
 // refcounted objects that include tensors
-struct AT_API Retainable {
+struct Retainable {
   Retainable(): refcount(1), weak_refcount(1) {}
   void retain() {
     ++refcount;

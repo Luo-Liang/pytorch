@@ -1,6 +1,5 @@
 #pragma once
 
-#include "caffe2/core/common.h"
 #include "onnx/onnx_pb.h"
 
 #include <set>
@@ -14,7 +13,7 @@ using ::ONNX_NAMESPACE::AttributeProto;
 using ::ONNX_NAMESPACE::NodeProto;
 
 // \brief This class generates unique dummy names
-class CAFFE2_API DummyName {
+class DummyName {
  public:
   std::string NewDummyName();
 
@@ -71,7 +70,7 @@ inline AttributeProto MakeAttribute(
   return attr;
 }
 
-CAFFE2_API NodeProto MakeNode(
+NodeProto MakeNode(
     const std::string& type,
     const std::vector<std::string>& inputs,
     const std::vector<std::string>& outputs,

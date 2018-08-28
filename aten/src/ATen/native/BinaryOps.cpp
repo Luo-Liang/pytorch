@@ -124,7 +124,7 @@ Tensor& sub_(Tensor& self, const Tensor& other, Scalar alpha) {
 
 static Tensor scalar_tensor(Scalar scalar) {
   auto tensor = scalar.toTensor();
-  tensor.unsafeGetTensorImpl()->set_wrapped_number(true);
+  tensor.get()->set_wrapped_number(true);
   return tensor;
 }
 

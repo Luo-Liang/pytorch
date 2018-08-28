@@ -17,7 +17,7 @@
 
 THStorage* THStorage_new(at::ScalarType scalar_type) {
   THStorage* storage = c10::make_intrusive<at::StorageImpl>(
-      at::scalarTypeToDataType(scalar_type),
+      scalar_type,
       0,
       getTHDefaultAllocator(),
       true).release();
@@ -29,7 +29,7 @@ void THStorage_free(THStorage* storage) {
   if (!storage) {
     return;
   }
-  c10::raw::intrusive_ptr::decref(storage);
+  storage->_raw_decref();
 }
 
 ptrdiff_t THStorage_size(const THStorage *self)
@@ -40,7 +40,7 @@ ptrdiff_t THStorage_size(const THStorage *self)
 void THStorage_retain(THStorage *storage)
 {
   if (storage) {
-    c10::raw::intrusive_ptr::incref(storage);
+    storage->_raw_incref();
   }
 }
 

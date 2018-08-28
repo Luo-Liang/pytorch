@@ -1,6 +1,5 @@
 #pragma once
 
-#include <ATen/core/ATenGeneral.h>
 #include <ATen/core/Error.h>
 #include <atomic>
 #include <stdexcept>
@@ -33,7 +32,7 @@ namespace c10 {
 // tells us if the object was allocated by us.  If it wasn't, no
 // intrusive_ptr for you!
 
-class AT_CORE_API intrusive_ptr_target {
+class intrusive_ptr_target {
   // Note [Weak references for intrusive refcounting]
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Here's the scheme:
@@ -114,7 +113,7 @@ class AT_CORE_API intrusive_ptr_target {
 
 namespace detail {
 template <class TTarget>
-struct AT_CORE_EXPORT intrusive_target_default_null_type final {
+struct intrusive_target_default_null_type final {
   static constexpr TTarget* singleton() noexcept {
     return nullptr;
   }
@@ -127,7 +126,7 @@ class weak_intrusive_ptr;
 template <
     class TTarget,
     class NullType = detail::intrusive_target_default_null_type<TTarget>>
-class AT_CORE_EXPORT intrusive_ptr final {
+class intrusive_ptr final {
  private:
   static_assert(
       std::is_base_of<intrusive_ptr_target, TTarget>::value,
@@ -247,11 +246,9 @@ class AT_CORE_EXPORT intrusive_ptr final {
         NullType::singleton() == FromNullType::singleton(),
         "NullType mismatch. intrusive_ptr move assignment got pointer with differing null value.");
 #endif
-    if (static_cast<const void*>(&this->target_) != static_cast<const void*>(&rhs.target_)) {
-      reset_();
-      target_ = rhs.target_;
-      rhs.target_ = FromNullType::singleton();
-    }
+    reset_();
+    target_ = rhs.target_;
+    rhs.target_ = FromNullType::singleton();
     return *this;
   }
 
@@ -271,11 +268,9 @@ class AT_CORE_EXPORT intrusive_ptr final {
         NullType::singleton() == FromNullType::singleton(),
         "NullType mismatch. intrusive_ptr copy assignment got pointer with differing null value.");
 #endif
-    if (static_cast<const void*>(&this->target_) != static_cast<const void*>(&rhs.target_)) {
-      reset_();
-      target_ = rhs.target_;
-      retain_();
-    }
+    reset_();
+    target_ = rhs.target_;
+    retain_();
     return *this;
   }
 
@@ -325,13 +320,6 @@ class AT_CORE_EXPORT intrusive_ptr final {
     return target_->refcount_.load();
   }
 
-  size_t weak_use_count() const noexcept {
-    if (target_ == NullType::singleton()) {
-      return 0;
-    }
-    return target_->weakcount_.load();
-  }
-
   bool unique() const noexcept {
     return use_count() == 1;
   }
@@ -358,7 +346,7 @@ class AT_CORE_EXPORT intrusive_ptr final {
   static intrusive_ptr reclaim(TTarget* owning_ptr) {
     // See Note [Stack allocated intrusive_ptr_target safety]
     AT_ASSERTM(
-        owning_ptr == NullType::singleton() || owning_ptr->refcount_.load() > 0,
+        owning_ptr->refcount_.load() > 0,
         "intrusive_ptr: Can only intrusive_ptr::reclaim() owning pointers that were created using intrusive_ptr::release().");
     return intrusive_ptr(owning_ptr);
   }
@@ -416,7 +404,7 @@ inline bool operator!=(
 template <
     typename TTarget,
     class NullType = detail::intrusive_target_default_null_type<TTarget>>
-class AT_CORE_EXPORT weak_intrusive_ptr final {
+class weak_intrusive_ptr final {
  private:
   static_assert(
       std::is_base_of<intrusive_ptr_target, TTarget>::value,
@@ -528,11 +516,9 @@ class AT_CORE_EXPORT weak_intrusive_ptr final {
         NullType::singleton() == FromNullType::singleton(),
         "NullType mismatch. weak_intrusive_ptr move assignment got pointer with differing null value.");
 #endif
-    if (static_cast<const void*>(&this->target_) != static_cast<const void*>(&rhs.target_)) {
-      reset_();
-      target_ = rhs.target_;
-      rhs.target_ = FromNullType::singleton();
-    }
+    reset_();
+    target_ = rhs.target_;
+    rhs.target_ = FromNullType::singleton();
     return *this;
   }
 
@@ -553,11 +539,9 @@ class AT_CORE_EXPORT weak_intrusive_ptr final {
         NullType::singleton() == FromNullType::singleton(),
         "NullType mismatch. weak_intrusive_ptr copy assignment got pointer with differing null value.");
 #endif
-    if (static_cast<const void*>(&this->target_) != static_cast<const void*>(&rhs.target_)) {
-      reset_();
-      target_ = rhs.target_;
-      retain_();
-    }
+    reset_();
+    target_ = rhs.target_;
+    retain_();
     return *this;
   }
 
@@ -603,13 +587,6 @@ class AT_CORE_EXPORT weak_intrusive_ptr final {
     return target_->refcount_.load(); // refcount, not weakcount!
   }
 
-  size_t weak_use_count() const noexcept {
-    if (target_ == NullType::singleton()) {
-      return 0;
-    }
-    return target_->weakcount_.load();
-  }
-
   bool expired() const noexcept {
     return use_count() == 0;
   }
@@ -653,7 +630,6 @@ class AT_CORE_EXPORT weak_intrusive_ptr final {
     // see weak counting explanation at top of this file.
     // if refcount == 0, weakcount only must be >0.
     AT_ASSERTM(
-        owning_weak_ptr == NullType::singleton() ||
         owning_weak_ptr->weakcount_.load() > 1 ||
             (owning_weak_ptr->refcount_.load() == 0 &&
              owning_weak_ptr->weakcount_.load() > 0),
@@ -700,97 +676,93 @@ inline bool operator!=(
   return !operator==(lhs, rhs);
 }
 
-// Alias for documentary purposes, to more easily distinguish
-// weak raw intrusive pointers from intrusive pointers.
-using weak_intrusive_ptr_target = intrusive_ptr_target;
-
-// This namespace provides some methods for working with
-// raw pointers that subclass intrusive_ptr_target.  They are not provided
-// as methods on intrusive_ptr_target, because ideally you would not need these
-// methods at all (use smart pointers), but if you are dealing with legacy code
-// that still needs to pass around raw pointers, you may find these quite
-// useful.
+// This target lets your provide some public methods for working with
+// raw pointers to subclasses intrusive_ptr_target.  They are not provided
+// by default, because ideally you would not need these methods at all
+// (use smart pointers), but if you are dealing with legacy code that
+// still needs to pass around raw pointers, you may find these quite useful.
+// Inherit from this publically.
 //
 // An important usage note: some functions are only valid if you have a
 // strong raw pointer to the object, while others are only valid if you
-// have a weak raw pointer to the object.  ONLY call intrusive_ptr namespace
-// functions on strong pointers, and weak_intrusive_ptr namespace functions
-// on weak pointers.  If you mix it up, you may get an assert failure.
-namespace raw {
+// have a weak raw pointer to the object.  ONLY call _raw_weak_* methods
+// on weak pointers, and _raw_* methods on strong pointers.  If you mix
+// it up, you may get an assert failure.  We also use 'weakref' to refer
+// to weak references, and 'ref' to refer to strong references.
+template <typename T> // CRTP
+class raw_intrusive_ptr_target : public intrusive_ptr_target {
 
-namespace intrusive_ptr {
+public:
 
-  // WARNING: Unlike the reclaim() API, it is NOT valid to pass
-  // NullType::singleton to this function
-  inline void incref(intrusive_ptr_target* self) {
-    auto ptr = c10::intrusive_ptr<intrusive_ptr_target>::reclaim(self);
+  // ------------------------------------------------------------------
+  // STRONG pointer functions
+  // Call this only if you got T* from intrusive_ptr<T>::release()
+
+  void _raw_incref() {
+    auto ptr = c10::intrusive_ptr<T>::reclaim(static_cast<T*>(this));
     auto ptr_copy = ptr;
     ptr_copy.release();
     ptr.release();
   }
 
-  // WARNING: Unlike the reclaim() API, it is NOT valid to pass
-  // NullType::singleton to this function
-  inline void decref(intrusive_ptr_target* self) {
+  void _raw_decref() {
     // Let it die
-    c10::intrusive_ptr<intrusive_ptr_target>::reclaim(self);
-    // NB: Caller still has 'self' pointer, but it's now invalid.
+    c10::intrusive_ptr<T>::reclaim(static_cast<T*>(this));
+    // NB: You still "have" a pointer, but it's now invalid.
     // If you want more safety, used the actual c10::intrusive_ptr class
   }
 
-  template <typename T>
-  inline T* make_weak(T* self) {
+  T* _raw_make_weak() {
     // NB: 'this' is a strong pointer, but we return a weak pointer
-    auto ptr = c10::intrusive_ptr<T>::reclaim(self);
+    auto ptr = c10::intrusive_ptr<T>::reclaim(static_cast<T*>(this));
     c10::weak_intrusive_ptr<T> wptr(ptr);
     ptr.release();
     return wptr.release();
   }
 
-  inline uint32_t use_count(intrusive_ptr_target* self) {
-    auto ptr = c10::intrusive_ptr<intrusive_ptr_target>::reclaim(self);
+  // This gives the STRONG refcount of a STRONG pointer
+  uint32_t _raw_use_count() {
+    auto ptr = c10::intrusive_ptr<T>::reclaim(static_cast<T*>(this));
     auto r = ptr.use_count();
     ptr.release();
     return r;
   }
 
-} // namespace intrusive_ptr_target
+  // ------------------------------------------------------------------
+  // WEAK pointer functions
+  // Call this only if you got T* from weak_intrusive_ptr<T>::release()
 
-namespace weak_intrusive_ptr {
-
-  inline void incref(weak_intrusive_ptr_target* self) {
-    auto wptr = c10::weak_intrusive_ptr<weak_intrusive_ptr_target>::reclaim(self);
+  void _raw_weak_incweakref() {
+    // NB: 'this' is a weak pointer
+    auto wptr = c10::weak_intrusive_ptr<T>::reclaim(static_cast<T*>(this));
     auto wptr_copy = wptr;
     wptr_copy.release();
     wptr.release();
   }
 
-  inline void decref(weak_intrusive_ptr_target* self) {
+  void _raw_weak_decweakref() {
+    // NB: 'this' is a weak pointer
     // Let it die
-    c10::weak_intrusive_ptr<intrusive_ptr_target>::reclaim(self);
-    // NB: You still "have" the 'self' pointer, but it's now invalid.
+    c10::weak_intrusive_ptr<T>::reclaim(static_cast<T*>(this));
+    // NB: You still "have" a pointer, but it's now invalid.
     // If you want more safety, used the actual c10::weak_intrusive_ptr class
   }
 
-  template <typename T>
-  inline T* lock(T* self) {
-    auto wptr = c10::weak_intrusive_ptr<T>::reclaim(self);
+  T* _raw_weak_lock() {
+    auto wptr = c10::weak_intrusive_ptr<T>::reclaim(static_cast<T*>(this));
     auto ptr = wptr.lock();
     wptr.release();
     return ptr.release();
   }
 
   // This gives the STRONG refcount of a WEAK pointer
-  inline uint32_t use_count(weak_intrusive_ptr_target* self) {
-    auto wptr = c10::weak_intrusive_ptr<intrusive_ptr_target>::reclaim(self);
+  uint32_t _raw_weak_use_count() {
+    auto wptr = c10::weak_intrusive_ptr<T>::reclaim(static_cast<T*>(this));
     auto r = wptr.use_count();
     wptr.release();
     return r;
   }
-
-} // namespace weak_intrusive_ptr_target
-
-} // namespace raw
+};
 
 } // namespace c10
 
@@ -798,13 +770,13 @@ namespace std {
 // To allow intrusive_ptr and weak_intrusive_ptr inside std::unordered_map or
 // std::unordered_set, we need std::hash
 template <class TTarget, class NullType>
-struct AT_CORE_EXPORT hash<c10::intrusive_ptr<TTarget, NullType>> {
+struct hash<c10::intrusive_ptr<TTarget, NullType>> {
   size_t operator()(const c10::intrusive_ptr<TTarget, NullType>& x) const {
     return std::hash<TTarget*>()(x.get());
   }
 };
 template <class TTarget, class NullType>
-struct AT_CORE_EXPORT hash<c10::weak_intrusive_ptr<TTarget, NullType>> {
+struct hash<c10::weak_intrusive_ptr<TTarget, NullType>> {
   size_t operator()(const c10::weak_intrusive_ptr<TTarget, NullType>& x) const {
     return std::hash<TTarget*>()(x._unsafe_get_target());
   }

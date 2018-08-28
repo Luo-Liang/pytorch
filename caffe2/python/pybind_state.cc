@@ -28,7 +28,6 @@
 #include "caffe2/opt/passes.h"
 #include "caffe2/opt/sink.h"
 #include "caffe2/predictor/predictor.h"
-#include "caffe2/python/pybind_state_registry.h"
 #include "caffe2/utils/cpuid.h"
 #include "caffe2/utils/string_utils.h"
 
@@ -722,7 +721,8 @@ void addObjectMethods(py::module& m) {
           [](caffe2::onnx::Caffe2BackendRep& instance,
              std::map<std::string, py::object> inputs)
               -> std::vector<py::object> {
-            caffe2::Predictor::TensorMap tensors_data{};
+            Predictor::TensorMap tensors;
+            std::map<std::string, TensorCPU> tensors_data{};
             for (const auto pair : inputs) {
               const auto& name = pair.first;
               const auto& input = pair.second;
@@ -734,12 +734,15 @@ void addObjectMethods(py::module& m) {
                   reinterpret_cast<PyArrayObject*>(input.ptr());
               TensorFeeder<CPUContext>().FeedTensor(
                   DeviceOption(), array, &tensors_data.at(name));
+              tensors.insert(std::make_pair(name, &tensors_data.at(name)));
             }
-            caffe2::Predictor::TensorList out;
-            instance.RunMap(tensors_data, &out);
+
+
+            std::vector<TensorCPU*> out;
+            instance.RunMap(tensors, &out);
             std::vector<py::object> pyout;
-            for (auto& t : out) {
-              pyout.push_back(TensorFetcher().FetchTensor(t, true).obj);
+            for (auto t : out) {
+              pyout.push_back(TensorFetcher().FetchTensor(*t, true).obj);
             }
             return pyout;
           })
@@ -747,6 +750,7 @@ void addObjectMethods(py::module& m) {
           "run",
           [](caffe2::onnx::Caffe2BackendRep& instance,
              std::vector<py::object> inputs) -> std::vector<py::object> {
+            Predictor::TensorVector tensors;
             std::vector<TensorCPU> tensors_data;
             for (auto i = 0; i < inputs.size(); ++i) {
               tensors_data.emplace_back(caffe2::CPU);
@@ -760,12 +764,13 @@ void addObjectMethods(py::module& m) {
                   reinterpret_cast<PyArrayObject*>(input.ptr());
               TensorFeeder<CPUContext>().FeedTensor(
                   DeviceOption(), array, &(tensors_data[i]));
+              tensors.push_back(&(tensors_data[i]));
             }
-            std::vector<TensorCPU> out;
-            instance.Run(tensors_data, &out);
+            std::vector<TensorCPU*> out;
+            instance.Run(tensors, &out);
             std::vector<py::object> pyout;
-            for (auto& t : out) {
-              pyout.push_back(TensorFetcher().FetchTensor(t, true).obj);
+            for (auto t : out) {
+              pyout.push_back(TensorFetcher().FetchTensor(*t, true).obj);
             }
             return pyout;
           });
@@ -856,6 +861,7 @@ void addObjectMethods(py::module& m) {
           "run",
           [](Predictor& instance,
              std::vector<py::object> inputs) -> std::vector<py::object> {
+            Predictor::TensorVector tensors;
             std::vector<Tensor> tensors_data;
             for (auto i = 0; i < inputs.size(); ++i) {
               tensors_data.emplace_back(CPU);
@@ -869,12 +875,13 @@ void addObjectMethods(py::module& m) {
                   reinterpret_cast<PyArrayObject*>(input.ptr());
               TensorFeeder<CPUContext>().FeedTensor(
                   DeviceOption(), array, &(tensors_data[i]));
+              tensors.push_back(&(tensors_data[i]));
             }
-            std::vector<TensorCPU> out;
-            instance(tensors_data, &out);
+            std::vector<TensorCPU*> out;
+            instance.run(tensors, &out);
             std::vector<py::object> pyout;
-            for (auto& t : out) {
-              pyout.push_back(TensorFetcher().FetchTensor(t, true).obj);
+            for (auto t : out) {
+              pyout.push_back(TensorFetcher().FetchTensor(*t, true).obj);
             }
             return pyout;
           })
@@ -882,7 +889,8 @@ void addObjectMethods(py::module& m) {
           "run",
           [](Predictor& instance, std::map<std::string, py::object> inputs)
               -> std::vector<py::object> {
-            Predictor::TensorMap tensors_data;
+            Predictor::TensorMap tensors;
+            std::map<std::string, TensorCPU> tensors_data{};
             for (const auto pair : inputs) {
               const auto& name = pair.first;
               const auto& input = pair.second;
@@ -894,12 +902,13 @@ void addObjectMethods(py::module& m) {
                   reinterpret_cast<PyArrayObject*>(input.ptr());
               TensorFeeder<CPUContext>().FeedTensor(
                   DeviceOption(), array, &tensors_data.at(name));
+              tensors.insert(std::make_pair(name, &tensors_data.at(name)));
             }
-            Predictor::TensorList out;
-            instance(tensors_data, &out);
+            std::vector<TensorCPU*> out;
+            instance.run_map(tensors, &out);
             std::vector<py::object> pyout;
-            for (auto& t : out) {
-              pyout.push_back(TensorFetcher().FetchTensor(t, true).obj);
+            for (auto t : out) {
+              pyout.push_back(TensorFetcher().FetchTensor(*t, true).obj);
             }
             return pyout;
           });
@@ -1727,9 +1736,6 @@ PYBIND11_MODULE(caffe2_pybind11_state, m) {
 
   addGlobalMethods(m);
   addObjectMethods(m);
-  for (const auto& addition : PybindAdditionRegistry()->Keys()) {
-    PybindAdditionRegistry()->Create(addition, m);
-  }
 }
 
 } // namespace python

@@ -18,18 +18,18 @@ namespace at {
 
 struct Type;
 
-struct AT_API StorageImpl : public c10::intrusive_ptr_target {
+struct AT_API StorageImpl : public c10::raw_intrusive_ptr_target<StorageImpl> {
  public:
   StorageImpl() = delete;
   virtual ~StorageImpl() {};
   StorageImpl(
-      at::DataType data_type,
+      at::ScalarType scalar_type,
       ptrdiff_t size,
       at::DataPtr data_ptr,
       at::Allocator* allocator,
       bool resizable);
   StorageImpl(
-      at::DataType data_type,
+      at::ScalarType scalar_type,
       ptrdiff_t size,
       at::Allocator* allocator,
       bool resizable);
@@ -43,14 +43,13 @@ struct AT_API StorageImpl : public c10::intrusive_ptr_target {
   // the real data shouldn't call th::from_type
   template <typename T>
   inline T* data() const {
-    auto data_type_T =
-        at::scalarTypeToDataType(at::CTypeToScalarType<th::from_type<T>>::to());
-    if (dtype() != data_type_T) {
+    auto scalar_type_T = at::CTypeToScalarType<th::from_type<T>>::to();
+    if (scalar_type_ != scalar_type_T) {
       AT_ERROR(
           "Attempt to access StorageImpl having data type ",
-          dtype(),
+          at::toString(scalar_type_),
           " as data type ",
-          data_type_T);
+          at::toString(scalar_type_T));
     }
     return unsafe_data<T>();
   }
@@ -71,7 +70,7 @@ struct AT_API StorageImpl : public c10::intrusive_ptr_target {
   void operator=(const StorageImpl&) = delete;
 
   size_t elementSize() const {
-    return at::elementSize(dataTypeToScalarType(data_type_));
+    return at::elementSize(scalar_type_);
   }
 
   Type& type();
@@ -109,9 +108,9 @@ struct AT_API StorageImpl : public c10::intrusive_ptr_target {
   at::Allocator* allocator() {
     return allocator_;
   };
-  const DataType dtype() const {
-    return data_type_;
-  }
+  at::ScalarType scalar_type() const {
+    return scalar_type_;
+  };
   const at::Allocator* allocator() const {
     return allocator_;
   };
@@ -130,7 +129,7 @@ struct AT_API StorageImpl : public c10::intrusive_ptr_target {
   }
 
  private:
-  at::DataType data_type_;
+  at::ScalarType scalar_type_;
   at::DataPtr data_ptr_;
   ptrdiff_t size_;
   bool resizable_;

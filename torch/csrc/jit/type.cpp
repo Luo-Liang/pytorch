@@ -7,7 +7,7 @@
 namespace torch { namespace jit {
 
 std::ostream& operator<<(std::ostream & out, const Type & t) {
-  if(auto value = t.cast<CompleteTensorType>()) {
+  if(auto value = t.cast<TensorType>()) {
     out << at::toString(value->scalarType()) << "(";
     auto& sizes = value->sizes();
     auto& strides = value->strides();
@@ -23,15 +23,6 @@ std::ostream& operator<<(std::ostream & out, const Type & t) {
       if (strides[i] != expected) {
         out << "!"; //mark non-contiguous
       }
-    }
-    out << ")";
-  } else if (auto value = t.cast<TensorType>()) {
-    out << at::toString(value->scalarType()) << "(";
-    for (int i = 0; i < value->dim(); ++i) {
-      if (i > 0) {
-        out << ", ";
-      }
-      out << "*";
     }
     out << ")";
   } else if(t.kind() == TypeKind::DynamicType) {
@@ -96,7 +87,7 @@ ListTypePtr ListType::ofFloats() {
 
 TypePtr inferTypeFrom(const IValue& value) {
   if (value.isTensor()) {
-    return CompleteTensorType::create(value.toTensor());
+    return TensorType::create(value.toTensor());
   } else if (value.isDouble()) {
     return FloatType::get();
   } else if (value.isInt()) {

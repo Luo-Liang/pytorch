@@ -518,16 +518,9 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::allgather(
 
   for (size_t i = 0; i < outputTensors.size(); ++i) {
     tensorCheckHelper(
-        std::vector<at::Tensor>{inputTensors[i]},
-        outputTensors[i],
-        size_ * inputTensors.size());
+        std::vector<at::Tensor>{inputTensors[i]}, outputTensors[i], size_);
     // Flatten the output tensors (from all ranks) to a single big tensor
-    flattenOutputTensors[i] = newLikeFlat(outputTensors, i);
-
-    if (static_cast<size_t>(flattenOutputTensors[i].numel()) !=
-        inputTensors[i].numel() * size_ * inputTensors.size()) {
-      throw std::runtime_error("Unexpected size for flatten tensor");
-    }
+    flattenOutputTensors[i] = newLikeFlat(outputTensors);
   }
 
   auto devices = getDeviceList(inputTensors);
@@ -550,7 +543,13 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::allgather(
   for (size_t i = 0; i < inputTensors.size(); ++i) {
     gpuGuard.set_index(devices[i].index());
 
-    CUDAStream& ncclStream = ncclStreams_[key][i];
+    /**
+     * TODO: use the NCCL stream, currently, there are issues using NCCL stream
+     * for both NCCL and the copy. That's why we are using default stream for
+     * allGather temporarily. work->wait() is currently a no-op
+     */
+    auto currentThcStream =
+        THCState_getCurrentStreamOnDevice(thcState_, devices[i].index());
 
     C10D_NCCL_CHECK(ncclAllGather(
         inputTensors[i].data_ptr(),
@@ -558,17 +557,15 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::allgather(
         inputTensors[i].numel(),
         getNcclDataType(inputTensors[i].type().scalarType()),
         ncclComms[i]->getNcclComm(),
-        ncclStream.getStream()));
+        currentThcStream));
   }
 
   C10D_NCCL_CHECK(ncclGroupEnd());
 
   // Copy the flattened output tensors to the outputs
   for (size_t i = 0; i < outputTensors.size(); ++i) {
-    CUDAStream& ncclStream = ncclStreams_[key][i];
-    THCStreamGuard guard(thcState_, ncclStream);
     for (size_t j = 0; j < outputTensors[0].size(); ++j) {
-      outputTensors[i][j].copy_(flattenOutputTensors[i][j], true);
+      outputTensors[i][j].copy_(flattenOutputTensors[i][j][i], true);
     }
   }
 

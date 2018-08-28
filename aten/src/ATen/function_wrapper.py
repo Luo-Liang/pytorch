@@ -180,8 +180,7 @@ if(${check_name}.type().is_sparse()) {
 }""")
 
 BUFFER_DEFINITION = CodeTemplate("""\
-auto ${name}_ = c10::make_intrusive<TensorImpl, UndefinedTensor>(
-    ${Backend}TensorId(), ScalarType::${ScalarName}, ${THTensor}_new(), false).release();
+auto ${name}_ = new TensorImpl(${Backend}TensorId(), ScalarType::${ScalarName}, ${THTensor}_new(), false);
 auto ${name} = Tensor(${name}_, false);""")
 
 CONDITIONAL_INITIALIZER = CodeTemplate("""\
@@ -254,38 +253,38 @@ TYPE_RETURN = {
 CHECKED_CAST = {
     'THTensor*':
         CodeTemplate(
-            'checked_tensor_unwrap('
-            '${arg_name},"${arg_name}",${arg_pos}, ${null_okay}, '
+            'checked_cast_tensor<TensorImpl>('
+            '${arg_name}.pImpl,"${arg_name}",${arg_pos}, ${null_okay}, '
             'Backend::${Backend}, ScalarType::${ScalarName})'),
     'THSTensor*':
         CodeTemplate(
-            'checked_tensor_unwrap('
-            '${arg_name}.tref,"${arg_name}",${arg_pos},false, '
+            'checked_cast_tensor<Sparse${Tensor}>('
+            '${arg_name}.tref.pImpl,"${arg_name}",${arg_pos},false, '
             'Backend::${Backend}, ScalarType::${ScalarName})'),
     'THBoolTensor*':
         CodeTemplate(
-            'checked_tensor_unwrap('
-            '${arg_name},"${arg_name}",${arg_pos}, ${null_okay}, '
+            'checked_cast_tensor<TensorImpl>('
+            '${arg_name}.pImpl,"${arg_name}",${arg_pos}, ${null_okay}, '
             'Backend::${Backend}, ScalarType::Byte)'),
     'THIndexTensor*':
         CodeTemplate(
-            'checked_tensor_unwrap('
-            '${arg_name},"${arg_name}",${arg_pos}, ${null_okay}, '
+            'checked_cast_tensor<TensorImpl>('
+            '${arg_name}.pImpl,"${arg_name}",${arg_pos}, ${null_okay}, '
             'Backend::${Backend}, ScalarType::Long)'),
     'THIntegerTensor*':
         CodeTemplate(
-            'checked_tensor_unwrap('
-            '${arg_name},"${arg_name}",${arg_pos}, ${null_okay}, '
+            'checked_cast_tensor<TensorImpl>('
+            '${arg_name}.pImpl,"${arg_name}",${arg_pos}, ${null_okay}, '
             'Backend::${Backend}, ScalarType::Int)'),
     'THDenseTensor*':
         CodeTemplate(
-            'checked_tensor_unwrap('
-            '${arg_name},"${arg_name}",${arg_pos}, ${null_okay}, '
+            'checked_cast_tensor<TensorImpl>('
+            '${arg_name}.pImpl,"${arg_name}",${arg_pos}, ${null_okay}, '
             'Backend::${DenseBackend}, ScalarType::${ScalarName})'),
     'THDenseIndexTensor*':
         CodeTemplate(
-            'checked_tensor_unwrap('
-            '${arg_name},"${arg_name}",${arg_pos}, ${null_okay}, '
+            'checked_cast_tensor<TensorImpl>('
+            '${arg_name}.pImpl,"${arg_name}",${arg_pos}, ${null_okay}, '
             'Backend::${DenseBackend}, ScalarType::Long)'),
     'THStorage*':
         CodeTemplate(
@@ -293,7 +292,7 @@ CHECKED_CAST = {
             '${arg_name},"${arg_name}",${arg_pos}, '
             # We're punning here (Backend and DeviceType constructors coincide)
             # but DeviceType is the correct way to classify storages
-            'DeviceType::${Backend}, at::scalarTypeToDataType(ScalarType::${ScalarName}))'),
+            'DeviceType::${Backend}, ScalarType::${ScalarName})'),
     'THGenerator*':
         CodeTemplate(
             'check_generator<${Backend}Generator>(${arg_name}, &globalContext().defaultGenerator(device_type()))'),
@@ -302,7 +301,8 @@ CHECKED_CAST = {
     'real': CodeTemplate('${arg_name}.to${ScalarName}()'),
     'accreal': CodeTemplate('${arg_name}.to${AccScalarName}()'),
     'TensorList': CodeTemplate(
-            'checked_tensor_list_unwrap(${arg_name},"${arg_name}",${arg_pos}, '
+            'tensor_list_checked_cast<TensorImpl, Tensor, '
+            '${THTensor}>(${arg_name},"${arg_name}",${arg_pos}, '
             'Backend::${Backend}, ScalarType::${ScalarName})'),
     'IntList': CodeTemplate('check_intlist<${size}>(${arg_name}, "${arg_name}", ${arg_pos}${,default_init})')
 }
@@ -323,18 +323,13 @@ CHECKED_USE = {
 CHECKED_USE_NULLABLE = CodeTemplate('${arg_name}_ ? ${usage} : NULL')
 
 ALLOC_NOARGS_WRAP = {
-    'THTensor*': 'c10::make_intrusive<TensorImpl, UndefinedTensor>'
-                 '(${Backend}TensorId(), ScalarType::${ScalarName}, false).release()',
-    'THBoolTensor*': 'c10::make_intrusive<TensorImpl, UndefinedTensor>'
-                     '(${Backend}TensorId(), ScalarType::Byte, false).release()',
-    'THIndexTensor*': 'c10::make_intrusive<TensorImpl, UndefinedTensor>'
-                      '(${Backend}TensorId(), ScalarType::Long, false).release()',
-    'THIntegerTensor*': 'c10::make_intrusive<TensorImpl, UndefinedTensor>'
-                        '(${Backend}TensorId(), ScalarType::Int, false).release()',
-    'THDenseTensor*': 'c10::make_intrusive<TensorImpl, UndefinedTensor>'
-                      '(${Backend}TensorId(), ScalarType::${ScalarName}, false).release()',
-    'THDenseIndexTensor*': 'c10::make_intrusive<TensorImpl, UndefinedTensor>'
-                           '(${Backend}TensorId(), ScalarType::Long, false).release()'
+    'THTensor*': 'new TensorImpl(${Backend}TensorId(), ScalarType::${ScalarName}, false)',
+    'THBoolTensor*': 'new TensorImpl(${Backend}TensorId(), ScalarType::Byte, false)',
+    'THIndexTensor*': 'new TensorImpl(${Backend}TensorId(), ScalarType::Long, false)',
+    'THIntegerTensor*': 'new TensorImpl(${Backend}TensorId(), ScalarType::Int, false)',
+    'THSTensor*': 'detail::new_Sparse${Tensor}()',
+    'THDenseTensor*': 'new TensorImpl(${Backend}TensorId(), ScalarType::${ScalarName}, false)',
+    'THDenseIndexTensor*': 'new TensorImpl(${Backend}TensorId(), ScalarType::Long, false)'
 }
 
 ALLOC_WRAP = {
@@ -342,6 +337,7 @@ ALLOC_WRAP = {
     'THBoolTensor*': '${arguments}',
     'THIndexTensor*': '${arguments}',
     'THIntegerTensor*': '${arguments}',
+    'THSTensor*': 'new Sparse${Tensor}(${arguments})',
     'THDenseTensor*': '${arguments}',
     'THDenseIndexTensor*': '${arguments}',
 }
@@ -1231,7 +1227,7 @@ def create_derived(backend_type_env, declarations):
         if broadcasts_arg:
             return []
         zero_dim_actuals = [arg['name']
-                            if arg['name'] != zero_dim_dispatch else "{}._local_scalar()".format(arg['name'])
+                            if arg['name'] != zero_dim_dispatch else "Scalar({})".format(arg['name'])
                             for arg in option['formals_list']]
         return [ZERO_DIM_CHECK.substitute(env, check_name=zero_dim_dispatch, zero_dim_actuals=zero_dim_actuals)]
 

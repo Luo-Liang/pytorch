@@ -19,14 +19,11 @@
 namespace caffe2 {
 
 using DataType = TypeMeta;
-// TODO: changed to DataPtr in Aten when shared folder
-// is ready
-using DataPtr = std::shared_ptr<void>;
 
 class StorageImpl;
 using Storage = std::shared_ptr<StorageImpl>;
 
-class CAFFE2_API StorageImpl {
+class StorageImpl {
  public:
   StorageImpl() = delete;
   StorageImpl(const StorageImpl&) = delete;
@@ -35,29 +32,6 @@ class CAFFE2_API StorageImpl {
   explicit StorageImpl(DeviceType device_type) : device_type_(device_type) {}
   StorageImpl(DeviceType device_type, TypeMeta data_type)
       : data_type_(data_type), device_type_(device_type) {}
-  template <typename Deleter = MemoryDeleter>
-  StorageImpl(
-      DeviceType device_type,
-      TypeMeta data_type,
-      void* src,
-      size_t capacity,
-      Deleter d = nullptr)
-      : data_type_(data_type), device_type_(device_type) {
-    CAFFE_ENFORCE_WITH_CALLER(
-        data_type_.id() != TypeIdentifier::uninitialized(),
-        "To create storage with a raw external pointer you need to pass in an "
-        "initialized data_type(TypeMeta).");
-    // Check if the deleter is a MemoryDeleter and is a simple nullptr.
-    if (std::is_same<MemoryDeleter, Deleter>::value &&
-        reinterpret_cast<MemoryDeleter*>(static_cast<void*>(&d))[0] ==
-            nullptr) {
-      // Use aliasing constructor trick to avoid calling the destructor.
-      data_ptr_ = std::shared_ptr<void>(std::shared_ptr<void>(), src);
-    } else {
-      data_ptr_.reset(src, d);
-    }
-    capacity_ = capacity;
-  }
 
   void reset() {
     data_ptr_.reset();
@@ -69,24 +43,12 @@ class CAFFE2_API StorageImpl {
     return data_type_.Match<T>();
   }
 
-  const void* data() const {
+  const void* data_ptr() const {
     return data_ptr_.get();
   }
 
-  void* data() {
+  void* data_ptr() {
     return data_ptr_.get();
-  }
-
-  DataPtr& data_ptr() {
-    return data_ptr_;
-  }
-
-  const DataPtr& data_ptr() const {
-    return data_ptr_;
-  }
-
-  void set_dtype(const DataType& data_type) {
-    data_type_ = data_type;
   }
 
   const DataType& dtype() const {
@@ -101,9 +63,8 @@ class CAFFE2_API StorageImpl {
     return capacity_ / itemsize();
   }
 
-  // TODO: remove later
-  void set_numel(int64_t numel) {
-    capacity_ = numel * itemsize();
+  inline void set_device_type(DeviceType device_type) {
+    device_type_ = device_type;
   }
 
   inline DeviceType device_type() const {
@@ -119,27 +80,13 @@ class CAFFE2_API StorageImpl {
   ~StorageImpl() = default;
   StorageImpl& operator=(StorageImpl&&) = default;
 
-  /**
-   * Can only be called when use_count is 1
-   */
+ protected:
   template <typename Deleter = MemoryDeleter>
-  void SingleUseStorageShareExternalPointer(
+  void ShareExternalPointer(
       void* src,
       const DataType& data_type,
-      size_t capacity,
+      size_t capacity = 0,
       Deleter d = nullptr) {
-    // TODO: this will be added in the intrusive_ptr diff
-    // CAFFE_ENFORCE_WITH_CALLER(
-    //     use_count() == 1,
-    //     "SingleUseStorageShareExternalPointer can only be called when
-    //     use_count == 1");
-    data_type_ = data_type;
-    CAFFE_ENFORCE_WITH_CALLER(
-        data_type_.id() != TypeIdentifier::uninitialized(),
-        "To share with a raw external pointer you need to have meta "
-        "already set.");
-    CAFFE_ENFORCE_WITH_CALLER(
-        capacity >= 0, "capacity must be valid for ShareExternalPointer");
     // Check if the deleter is a MemoryDeleter and is a simple nullptr.
     if (std::is_same<MemoryDeleter, Deleter>::value &&
         reinterpret_cast<MemoryDeleter*>(&d)[0] == nullptr) {
@@ -148,10 +95,16 @@ class CAFFE2_API StorageImpl {
     } else {
       data_ptr_.reset(src, d);
     }
-    capacity_ = capacity;
+    // Sets capacity. If not specified, we will implicitly assume that
+    // the capacity is the current size.
+    if (capacity) {
+      capacity_ = capacity;
+    }
   }
 
- private:
+  // TODO: changed to DataPtr in Aten when shared folder
+  // is ready
+  using DataPtr = std::shared_ptr<void>;
   int64_t capacity_ = 0;
   DataType data_type_;
   DataPtr data_ptr_;
@@ -159,32 +112,8 @@ class CAFFE2_API StorageImpl {
   // Allocator* allocator_;
   DeviceType device_type_ = CPU;
 
+  friend class TensorImpl;
 };
-
-/**
- * Create a Storage given an external pointer `src`.
- * `device_type`: the device type of the storage
- * `capacity`: the capacity of the Tensor
- */
-template <typename T, typename Deleter = MemoryDeleter>
-Storage CreateStorage(
-    T* src,
-    DeviceType device_type,
-    size_t capacity = 0,
-    Deleter d = nullptr) {
-  return CreateStorage(src, device_type, TypeMeta::Make<T>(), capacity, d);
-}
-
-template <typename Deleter = MemoryDeleter>
-Storage CreateStorage(
-    void* src,
-    DeviceType device_type,
-    const TypeMeta& meta,
-    size_t capacity, /* need to specify capacity of the storage */
-    Deleter d = nullptr) {
-  // We include capacity here because this will be a public function.
-  return std::make_shared<StorageImpl>(device_type, meta, src, capacity, d);
-}
 
 } // namespace caffe2
 

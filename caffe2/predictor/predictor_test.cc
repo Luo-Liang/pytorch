@@ -178,35 +178,26 @@ class PredictorTest : public testing::Test {
 
 TEST_F(PredictorTest, SimpleBatchSized) {
   auto inputData = randomTensor({1, 4}, ctx_.get());
-  Predictor::TensorList input;
-  input.emplace_back(CPU);
-  auto tensor = inputData->GetMutableTensor(CPU);
-  input.back().ResizeLike(*tensor);
-  input.back().ShareData(*tensor);
-  Predictor::TensorList output;
-  (*p_)(input, &output);
+  Predictor::TensorVector input{inputData->GetMutableTensor(CPU)};
+  Predictor::TensorVector output;
+  p_->run(input, &output);
   EXPECT_EQ(output.size(), 1);
-  EXPECT_EQ(output.front().dims().size(), 2);
-  EXPECT_EQ(output.front().dim(0), 1);
-  EXPECT_EQ(output.front().dim(1), 10);
-  EXPECT_NEAR(output.front().data<float>()[4], 0.1209, 1E-4);
+  EXPECT_TRUE(output.front()->dims().size() == 2);
+  EXPECT_TRUE(output.front()->dim(0) == 1);
+  EXPECT_TRUE(output.front()->dim(1) == 10);
+  EXPECT_NEAR(output.front()->data<float>()[4], 0.1209, 1E-4);
 }
 
 TEST_F(PredictorTest, SimpleBatchSizedMapInput) {
   auto inputData = randomTensor({1, 4}, ctx_.get());
-  Predictor::TensorMap input;
-  auto iter = input.emplace("data", Tensor(CPU));
-  auto tensor = inputData->GetMutableTensor(CPU);
-  iter.first->second.ResizeLike(*tensor);
-  iter.first->second.ShareData(*tensor);
-
-  Predictor::TensorList output;
-  (*p_)(input, &output);
+  Predictor::TensorMap input{{"data", inputData->GetMutableTensor(CPU)}};
+  Predictor::TensorVector output;
+  p_->run_map(input, &output);
   EXPECT_EQ(output.size(), 1);
-  EXPECT_EQ(output.front().dims().size(), 2);
-  EXPECT_EQ(output.front().dim(0), 1);
-  EXPECT_EQ(output.front().dim(1), 10);
-  EXPECT_NEAR(output.front().data<float>()[4], 0.1209, 1E-4);
+  EXPECT_TRUE(output.front()->dims().size() == 2);
+  EXPECT_TRUE(output.front()->dim(0) == 1);
+  EXPECT_TRUE(output.front()->dim(1) == 10);
+  EXPECT_NEAR(output.front()->data<float>()[4], 0.1209, 1E-4);
 }
 
 class PredictorMetaNetDefTest : public testing::Test {
@@ -225,17 +216,13 @@ class PredictorMetaNetDefTest : public testing::Test {
 
 TEST_F(PredictorMetaNetDefTest, SimpleMetaNetDefInitializer) {
   auto inputData = randomTensor({1, 4}, ctx_.get());
-  Predictor::TensorMap input;
-  auto iter = input.emplace("data", Tensor(CPU));
-  auto tensor = inputData->GetMutableTensor(CPU);
-  iter.first->second.ResizeLike(*tensor);
-  iter.first->second.ShareData(*tensor);
-  Predictor::TensorList output;
-  (*p_)(input, &output);
+  Predictor::TensorMap input{{"data", inputData->GetMutableTensor(CPU)}};
+  Predictor::TensorVector output;
+  p_->run_map(input, &output);
   EXPECT_EQ(output.size(), 1);
-  EXPECT_EQ(output.front().dims().size(), 2);
-  EXPECT_EQ(output.front().dim(0), 1);
-  EXPECT_EQ(output.front().dim(1), 10);
-  EXPECT_NEAR(output.front().data<float>()[4], 0.1209, 1E-4);
+  EXPECT_TRUE(output.front()->dims().size() == 2);
+  EXPECT_TRUE(output.front()->dim(0) == 1);
+  EXPECT_TRUE(output.front()->dim(1) == 10);
+  EXPECT_NEAR(output.front()->data<float>()[4], 0.1209, 1E-4);
 }
 } // namespace caffe2

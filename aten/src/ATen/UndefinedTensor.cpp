@@ -25,7 +25,7 @@ int64_t UndefinedTensor::dim() const {
   AT_ERROR("dim() called on undefined Tensor");
 }
 
-const Storage& UndefinedTensor::storage() const {
+const Storage& UndefinedTensor::storage() {
   AT_ERROR("storage() called on undefined Tensor");
 }
 

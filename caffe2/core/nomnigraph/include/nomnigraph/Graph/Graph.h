@@ -12,7 +12,6 @@
 #ifndef NOM_GRAPH_GRAPH_H
 #define NOM_GRAPH_GRAPH_H
 
-#include "caffe2/core/common.h"
 #include "nomnigraph/Support/Common.h"
 
 #include <algorithm>
@@ -43,7 +42,7 @@ class Node;
 
 // \brief Edge within a Graph.
 template <typename T, typename... U>
-class CAFFE2_API Edge : public StorageType<U...> {
+class Edge : public StorageType<U...> {
  public:
   using NodeRef = typename Graph<T, U...>::NodeRef;
   Edge(NodeRef tail, NodeRef head, U... args)
@@ -77,7 +76,7 @@ class CAFFE2_API Edge : public StorageType<U...> {
 
 // \brief Node within a Graph.
 template <typename T, typename... U>
-class CAFFE2_API Node : public StorageType<T>, public Notifier<Node<T, U...>> {
+class Node : public StorageType<T>, public Notifier<Node<T, U...>> {
  public:
   using NodeRef = typename Graph<T, U...>::NodeRef;
   using EdgeRef = typename Graph<T, U...>::EdgeRef;
@@ -88,9 +87,6 @@ class CAFFE2_API Node : public StorageType<T>, public Notifier<Node<T, U...>> {
   }
   /// \brief Create an empty node.
   explicit Node() : StorageType<T>() {}
-  Node(Node&&) = default;
-  Node(const Node&) = delete;
-  Node& operator=(const Node&) = delete;
 
   /// \brief Adds an edge by reference to known in-edges.
   /// \p e A reference to an edge that will be added as an in-edge.
@@ -156,7 +152,7 @@ class CAFFE2_API Node : public StorageType<T>, public Notifier<Node<T, U...>> {
 /// for example.
 ///
 template <typename T, typename... U>
-class CAFFE2_API Subgraph {
+class Subgraph {
  public:
   Subgraph() {
     DEBUG_PRINT("Creating instance of Subgraph: %p\n", this);
@@ -223,7 +219,7 @@ class CAFFE2_API Subgraph {
 /// Everything is owned by the graph to simplify storage concerns.
 ///
 template <typename T, typename... U>
-class CAFFE2_API Graph {
+class Graph {
  public:
   using SubgraphType = Subgraph<T, U...>;
   using NodeRef = Node<T, U...>*;

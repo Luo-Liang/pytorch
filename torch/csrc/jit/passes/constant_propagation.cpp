@@ -55,13 +55,8 @@ void propagateNode(Node* n) {
   auto graph = n->owningGraph();
   WithInsertPoint guard(n);
   for (size_t i = 0; i < outputs.size(); ++i) {
-    try {
-      auto new_output = graph->insertConstant(outputs[i]);
-      n->outputs()[i]->replaceAllUsesWith(new_output);
-    } catch(constant_not_supported_error& err) {
-      // we cannot actually represent the IValue as a constant node,
-      // so we give up replacing it
-    }
+    auto new_output = graph->insertConstant(outputs[i]);
+    n->outputs()[i]->replaceAllUsesWith(new_output);
     // let dce elimination remove n
   }
 }

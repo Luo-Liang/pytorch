@@ -920,24 +920,12 @@
 - func: is_sparse(Tensor self) -> bool
   device_guard: false
 
-- func: kl_div(Tensor self, Tensor target, int64_t reduction=Reduction::ElementwiseMean) -> Tensor
-  variants: function
-
-- func: kl_div_backward(Tensor grad_output, Tensor self, Tensor target, int64_t reduction=Reduction::ElementwiseMean) -> Tensor
-  variants: function
-  dispatch:
-    CPU: kl_div_backward_cpu
-    CUDA: kl_div_backward_cuda
-
 - func: kthvalue(Tensor self, int64_t k, int64_t dim=-1, bool keepdim=false) -> (Tensor, Tensor)
 
 - func: kthvalue_out(Tensor values, Tensor indices, Tensor self, int64_t k, int64_t dim=-1, bool keepdim=false) -> (Tensor, Tensor)
   variants: function
 
 - func: layer_norm(Tensor input, IntList normalized_shape, Tensor? weight={}, Tensor? bias={}, double eps=1e-5, bool cudnn_enable=True) -> Tensor
-  variants: function
-
-- func: linear(Tensor input, Tensor weight, Tensor bias={}) -> Tensor
   variants: function
 
 - func: linspace(Scalar start, Scalar end, TensorOptions options={}) -> Tensor
