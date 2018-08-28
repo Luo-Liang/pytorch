@@ -53,7 +53,7 @@ endif()
 # Note to developers: if you add an option below, make sure you also add it to
 # cmake/Summary.cmake so that the summary prints out the option values.
 include(CMakeDependentOption)
-option(BUILD_TORCH "Build Torch" OFF)
+option(BUILD_TORCH "Build Torch" ON)
 option(BUILD_CAFFE2 "Build Caffe2" ON)
 option(ATEN_NO_TEST "Do not build ATen test binaries" OFF)
 option(BUILD_ATEN_MOBILE "Build ATen for Android and iOS" OFF)
@@ -110,8 +110,8 @@ cmake_dependent_option(
     USE_MPI "Use MPI" ON
     "BUILD_CAFFE2" OFF)
 option(USE_NATIVE_ARCH "Use -march=native" OFF)
-option(USE_NCCL "Use NCCL" ON)
-option(USE_SYSTEM_NCCL "Use system-wide NCCL" OFF)
+option(USE_NCCL "Use NCCL" OFF)
+option(USE_SYSTEM_NCCL "Use system-wide NCCL" ON)
 option(USE_NERVANA_GPU "Use Nervana GPU backend" OFF)
 option(USE_NNAPI "Use NNAPI" OFF)
 option(USE_NNPACK "Use NNPACK" ON)
@@ -126,11 +126,11 @@ cmake_dependent_option(
     "BUILD_CAFFE2" OFF)
 option(USE_OPENMP "Use OpenMP for parallel code" OFF)
 option(USE_PROF "Use profiling" OFF)
-option(USE_REDIS "Use Redis" OFF)
+option(USE_REDIS "Use Redis" ON)
 option(USE_ROCKSDB "Use RocksDB" OFF)
 option(USE_SNPE "Use Qualcomm's SNPE library" OFF)
-option(USE_TENSORRT "Using Nvidia TensorRT library" OFF)
-option(USE_ZMQ "Use ZMQ" OFF)
+option(USE_TENSORRT "Using Nvidia TensorRT library" ON)
+option(USE_ZMQ "Use ZMQ" ON)
 option(USE_ZSTD "Use ZSTD" OFF)
 option(USE_MKLDNN "Use MKLDNN" OFF)
 cmake_dependent_option(
@@ -139,7 +139,7 @@ cmake_dependent_option(
 cmake_dependent_option(
   USE_MKLML "Use MKLML interface in MKL BLAS" ON
     "BUILD_CAFFE2" OFF)
-option(USE_DISTRIBUTED "Use THD (distributed)" OFF)
+option(USE_DISTRIBUTED "Use THD (distributed)" ON)
 
 # Used when building Caffe2 through setup.py
 option(BUILDING_WITH_TORCH_LIBS "Tell cmake if Caffe2 is being built alongside torch libs" OFF)
